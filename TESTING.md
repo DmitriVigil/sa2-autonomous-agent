@@ -41,3 +41,23 @@ All 9 unit test cases (7 test functions, including parametrized boundary checks)
 ## Planned Test Coverage
 * **`tests/test_controller.py`:** Input range clamping, deadzone handling, and virtual gamepad/keyboard state resets.
 * **`tests/test_recorder.py`:** Frame-to-input synchronization, pause/resume state transitions, and `.npy` serialization shape checks.
+
+---
+
+## Module: Input Controller (`core/controller.py`)
+
+### Black-Box Testing (Live Integration)
+Verified manually in-game with *Sonic Adventure 2* configured for **Keyboard (QWERTY)**:
+
+* **DirectInput Injection:** Confirmed Sonic runs forward (`W`), jumps mid-stride (`J`), releases jump while continuing to run, triggers Action/Spin Dash (`K`), and stops cleanly when the script exits.
+
+### White-Box Testing (`tests/test_controller.py`)
+All 11 unit test cases (5 test functions, including parametrized deadzone checks) currently **PASS**.
+
+| Test Case | Target Method | Branch / Behavior Verified | Status |
+| :--- | :--- | :--- | :--- |
+| `test_set_state_axis_deadzone_mapping` *(7 cases)* | `set_state` | Maps `lx`/`ly` axes to `WASD` keys and ignores values at or inside the deadzone boundary. | Passing |
+| `test_set_state_buttons_and_custom_keymap` | `set_state` | Applies button flags (`jump`, `action`, `cam_left`, `cam_right`) and respects custom keymap overrides. | Passing |
+| `test_set_state_only_sends_transitions` | `set_state` | Diffs active key sets so identical frames trigger zero OS calls and only changed keys fire `keyDown`/`keyUp`. | Passing |
+| `test_reset_releases_all_held_keys` | `reset` | Releases every currently held key and clears `_held_keys`. | Passing |
+| `test_context_manager_releases_keys_on_exception` | `__exit__` | Guarantees all held keys are released if an unhandled exception occurs mid-run. | Passing |
