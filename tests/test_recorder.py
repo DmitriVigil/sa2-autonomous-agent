@@ -10,8 +10,8 @@ def _make_recorder(tmp_path, pressed_keys: set[str], keymap=None):
     recorder = SA2Recorder(
         capture=mock_capture,
         keymap=keymap,
-        pause_key="p",
-        save_key="q",
+        pause_key="f9",
+        save_key="f10",
         output_dir=tmp_path,
         is_pressed_fn=lambda k: k.lower() in pressed_keys,
     )
@@ -89,7 +89,7 @@ def test_step_pause_toggle_is_rising_edge_only(tmp_path):
     rec, _ = _make_recorder(tmp_path, pressed)
 
     # Tick 1: Press P -> switches to RECORDING and captures 1 sample
-    pressed.add("p")
+    pressed.add("f9")
     assert rec.step() is True
     assert rec.paused is False
     assert len(rec.frames) == 1
@@ -100,20 +100,20 @@ def test_step_pause_toggle_is_rising_edge_only(tmp_path):
     assert len(rec.frames) == 2
 
     # Tick 3: Release P -> still RECORDING, captures 3rd sample
-    pressed.remove("p")
+    pressed.remove("f9")
     assert rec.step() is True
     assert rec.paused is False
     assert len(rec.frames) == 3
 
     # Tick 4: Press P again -> switches back to PAUSED, no new sample
-    pressed.add("p")
+    pressed.add("f9")
     assert rec.step() is True
     assert rec.paused is True
     assert len(rec.frames) == 3
 
 
 def test_step_returns_false_when_save_key_pressed(tmp_path):
-    pressed = {"q"}
+    pressed = {"f10"}
     rec, mock_cap = _make_recorder(tmp_path, pressed)
 
     assert rec.step() is False
@@ -129,7 +129,7 @@ def test_save_skips_when_empty(tmp_path):
 
 
 def test_save_writes_valid_npz_dataset(tmp_path):
-    pressed = {"p", "w", "j"}
+    pressed = {"f9", "w", "j"}
     rec, _ = _make_recorder(tmp_path, pressed)
     rec.step()  # Unpauses and records 1 sample
 
@@ -149,7 +149,7 @@ def test_save_writes_valid_npz_dataset(tmp_path):
 
 def test_record_loop_saves_and_closes_capture(tmp_path):
     # Tick 1: unpause + hold W, Tick 2: press Q to save and exit
-    tick_states = [{"p", "w"}, {"q"}]
+    tick_states = [{"f9", "w"}, {"f10"}]
     current_keys = set()
 
     def fake_is_pressed(k: str) -> bool:
@@ -186,3 +186,10 @@ def test_record_closes_capture_even_on_exception(tmp_path):
         rec.record("city_escape")
 
     mock_cap.close.assert_called_once()
+
+def test_recorder_rejects_hotkey_collision_with_keymap(tmp_path):
+    with pytest.raises(ValueError, match="collides with a gameplay key"):
+        SA2Recorder(capture=MagicMock(), output_dir=tmp_path, save_key="q")
+
+    with pytest.raises(ValueError, match="must be different"):
+        SA2Recorder(capture=MagicMock(), output_dir=tmp_path, pause_key="f9", save_key="f9")
