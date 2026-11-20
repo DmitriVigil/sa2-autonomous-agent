@@ -41,8 +41,8 @@ class SA2Recorder:
         self,
         capture: SA2Capture | None = None,
         keymap: dict[str, str] | None = None,
-        pause_key: str = "p",
-        save_key: str = "q",
+        pause_key: str = "f9",
+        save_key: str = "f10",
         output_dir: str | Path = "data",
         is_pressed_fn: Callable[[str], bool] | None = None,
     ):
