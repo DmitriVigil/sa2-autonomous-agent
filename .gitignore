@@ -221,3 +221,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ML Data & Model Weights
+*.npy
+*.pth
+*.pt
+data/
+
+# IDE & Editor Settings
+.vs/
+.vscode/
