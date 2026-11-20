@@ -227,6 +227,7 @@ __marimo__/
 *.pth
 *.pt
 data/
+checkpoints/
 
 # IDE & Editor Settings
 .vs/

@@ -112,3 +112,64 @@ All 8 unit test cases (6 test functions, including parametrized channel checks) 
 | `test_invalid_input_raises_value_error` | `extract_features` | Rejects non-4D tensors and mismatched channel counts with `ValueError`. | Passing |
 | `test_predict_returns_action_vector_and_preserves_training_mode` | `predict` | Returns `(B, 6)` vector with sigmoid button probabilities `[0, 1]` and restores `.training` state. | Passing |
 | `test_compute_bc_loss_and_backward_pass` | `compute_bc_loss` | Computes combined MSE + weighted `BCEWithLogitsLoss` and verifies gradients flow to all parameters. | Passing |
+
+---
+
+## Module: Stacked Frame Dataset (`core/dataset.py`)
+
+### Black-Box Testing (Real `.npz` Ingestion & Action Audit)
+Verified against the Milestone 1 *City Escape* recordings in `data/`:
+
+* **Dataset Loading:** Loaded `1,491` valid 4-frame grayscale samples with verified tensor shape `(4, 90, 160)` and computed button `pos_weight = [1.0, 1.0, 10.0, 1.0]`.
+* **Data Quality Diagnostic:** Action-channel audit surfaced `[148, 247, 0, 0, 1, 0]` non-zero frames out of `1,497` total frames (~83% idle frames and zero `jump`/`action` presses in the short Milestone 1 test clips), and flagged the `Q` (`cam_left` vs. `save_key`) hotkey collision in `core/recorder.py` ahead of Milestone 2 dataset collection.
+
+### White-Box Testing (`tests/test_dataset.py`)
+All 5 unit test cases currently **PASS**.
+
+| Test Case | Target Method | Branch / Behavior Verified | Status |
+| :--- | :--- | :--- | :--- |
+| `test_loads_single_npz_and_aligns_target_with_newest_frame` | `__init__`, `__getitem__` | Converts BGR frames to normalized `[0, 1]` grayscale stacks and aligns target action with the newest frame. | Passing |
+| `test_multiple_episodes_do_not_bleed_across_boundaries` | `__init__`, `__getitem__` | Ensures 4-frame stacks never cross episode boundaries between separate `.npz` files. | Passing |
+| `test_stage_filter_and_missing_files_raise` | `_resolve_paths` | Filters `.npz` files by stage name and raises `FileNotFoundError` when no files match. | Passing |
+| `test_skips_short_episode_below_stack_size` | `__init__` | Safely skips recordings shorter than `stack_size` without failing dataset initialization. | Passing |
+| `test_compute_button_pos_weight_clamping_and_zero_positives` | `compute_button_pos_weight` | Clamps `neg/pos` ratios to `[1.0, max_weight]` and defaults zero-positive buttons to `1.0` to prevent `NaN`/`Inf`. | Passing |
+
+---
+
+## Module: Behavioral Cloning Trainer (`train.py`)
+
+### Black-Box Testing (End-to-End Smoke Test on Real Data)
+Executed a 5-epoch CPU training run (`python train.py --data-dir data --stage city_escape --epochs 5 --batch-size 32`) on `1,491` real samples (`1,267` train / `224` val):
+
+* **Convergence:** Training loss decreased from `0.6486` to `0.1447`; validation loss decreased monotonically every epoch from `0.2654` to `0.1208` (`axis_loss`: `0.2369` → `0.1192`, `button_loss`: `0.0285` → `0.0016`).
+* **Artifact Persistence:** Saved loadable `checkpoints/speed_cnn_best.pt` and `checkpoints/speed_cnn_last.pt` with embedded model configuration metadata.
+
+### White-Box Testing (`tests/test_train.py`)
+All 2 unit test cases currently **PASS**.
+
+| Test Case | Target Method | Branch / Behavior Verified | Status |
+| :--- | :--- | :--- | :--- |
+| `test_train_creates_loadable_checkpoints` | `train`, `train_one_epoch`, `evaluate` | Runs full synthetic train/val loop, writes best/last `.pt` checkpoints, and reconstructs `SpeedCNN` cleanly for inference. | Passing |
+| `test_train_rejects_invalid_val_split` | `train` | Raises `ValueError` for out-of-bounds `val_split` values (`0.0` and `1.0`). | Passing |
+
+---
+
+## Module: Live Inference Runner (`play.py`)
+
+### Black-Box Testing (Live `SA2` Dry-Run & Closed-Loop Control)
+Verified against live `sonic2app.exe` in *City Escape* using `checkpoints/speed_cnn_best.pt`:
+
+* **Integration Catch & Fix:** Initial dry run caught interface mismatches (`grab_frame()` and `reset()`) against real `SA2Capture` and `SA2Controller` classes; patched `play.py` and aligned unit test mocks to enforce the real interfaces.
+* **Dry-Run Mode (`--dry-run`):** Streamed live 20 FPS predictions for `1,072` steps (~53 seconds) without key injection and exited cleanly on `ESC`.
+* **Live Control Mode:** Ran `920` steps (~46 seconds) with live DirectInput injection and clean key release on exit (predicted near-zero axes as expected from the mostly idle Milestone 1 test clips).
+
+### White-Box Testing (`tests/test_play.py`)
+All 5 unit test cases currently **PASS**.
+
+| Test Case | Target Method | Branch / Behavior Verified | Status |
+| :--- | :--- | :--- | :--- |
+| `test_load_policy_reconstructs_model_from_checkpoint` | `load_policy` | Loads `.pt` checkpoint, rebuilds `SpeedCNN` from saved `config`, and puts model in `.eval()` mode. | Passing |
+| `test_load_policy_missing_file_raises` | `load_policy` | Raises `FileNotFoundError` for missing checkpoint paths. | Passing |
+| `test_frame_stack_buffer_pads_first_frame_and_rolls` | `FrameStackBuffer.push` | Pads initial stack with the first frame and rolls newest grayscale frames into channel index `-1`. | Passing |
+| `test_step_thresholds_buttons_and_respects_dry_run` | `SA2Player.step` | Applies button probability thresholding to `controller.set_state` and suppresses all inputs when `dry_run=True`. | Passing |
+| `test_run_stops_on_kill_switch_and_releases_keys` | `SA2Player.run` | Terminates loop immediately on `stop_key` (`ESC`) and guarantees `controller.reset()` runs on exit. | Passing |
