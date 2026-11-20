@@ -90,3 +90,25 @@ All 16 unit test cases (12 test functions, including parametrized virtual-key ch
 | `test_save_writes_valid_npz_dataset` | `save` | Writes a compressed `.npz` file with expected `frames` and `actions` shapes, dtypes, and values. | Passing |
 | `test_record_loop_saves_and_closes_capture` | `record` | Runs the tick loop until `save_key`, persists the `.npz` dataset, and closes `SA2Capture`. | Passing |
 | `test_record_closes_capture_even_on_exception` | `record` | Guarantees `capture.close()` runs in the `finally` block if capture raises mid-recording. | Passing |
+
+---
+
+## Module: Speed Policy Network (`models/speed_cnn.py`)
+
+### Black-Box Testing (Latency & Real-Data Overfit)
+Verified on local hardware (`Python 3.13.14`, CPU) using real stacked frames from `data/city_escape_20261119_211011.npz`:
+
+* **Inference Latency:** `1,052,554` parameters averaged **`2.63 ms`** per `(1, 4, 90, 160)` forward pass over 100 iterations (well under the `50.00 ms` budget for 20 FPS real-time play).
+* **Single-Batch Overfit:** Trained on 16 real 4-frame grayscale stacks for 80 Adam steps (`lr=1e-3`); total BC loss dropped from `0.8117` to `0.0142` (`axis_loss`: `0.0994` → `0.0109`, `button_loss`: `0.7124` → `0.0033`), with predicted actions matching recorded targets.
+
+### White-Box Testing (`tests/test_speed_cnn.py`)
+All 8 unit test cases (6 test functions, including parametrized channel checks) currently **PASS**.
+
+| Test Case | Target Method | Branch / Behavior Verified | Status |
+| :--- | :--- | :--- | :--- |
+| `test_forward_output_shapes_and_bounds` | `forward` | Verifies `(B, 2)` axes bounded to `[-1, 1]` via `Tanh` and `(B, 4)` raw button logits. | Passing |
+| `test_configurable_input_channels` *(3 cases)* | `__init__`, `forward` | Dynamically computes conv flatten size for `1`, `3`, and `4` input channels. | Passing |
+| `test_extract_features_shape` | `extract_features` | Returns shared `(B, latent_dim)` visual features for future PPO transfer. | Passing |
+| `test_invalid_input_raises_value_error` | `extract_features` | Rejects non-4D tensors and mismatched channel counts with `ValueError`. | Passing |
+| `test_predict_returns_action_vector_and_preserves_training_mode` | `predict` | Returns `(B, 6)` vector with sigmoid button probabilities `[0, 1]` and restores `.training` state. | Passing |
+| `test_compute_bc_loss_and_backward_pass` | `compute_bc_loss` | Computes combined MSE + weighted `BCEWithLogitsLoss` and verifies gradients flow to all parameters. | Passing |
