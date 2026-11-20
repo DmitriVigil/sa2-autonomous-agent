@@ -15,9 +15,7 @@ sa2-autonomous-agent/
 │   ├── speed_cnn.py        # Reactive CNN for Sonic & Shadow stages
 │   ├── mech_cnn.py         # CNN with lock-on timing for Tails & Eggman
 │   ├── hunting_lstm.py     # CNN + LSTM (memory) + radar parser for Knuckles & Rouge
-├── Rouge/
 │   └── stage_router.py     # Lightweight classifier to auto-switch models
-
 |-stage_router.py 
 ├── train.py                # Unified PyTorch training loop
 ├── play.py                 # Live inference loop
