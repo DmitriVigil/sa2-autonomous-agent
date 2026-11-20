@@ -61,3 +61,32 @@ All 11 unit test cases (5 test functions, including parametrized deadzone checks
 | `test_set_state_only_sends_transitions` | `set_state` | Diffs active key sets so identical frames trigger zero OS calls and only changed keys fire `keyDown`/`keyUp`. | Passing |
 | `test_reset_releases_all_held_keys` | `reset` | Releases every currently held key and clears `_held_keys`. | Passing |
 | `test_context_manager_releases_keys_on_exception` | `__exit__` | Guarantees all held keys are released if an unhandled exception occurs mid-run. | Passing |
+
+---
+
+## Module: Gameplay Recorder (`core/recorder.py`)
+
+### Black-Box Testing (Live Integration)
+Verified manually during a live *City Escape* run in *Sonic Adventure 2*:
+
+* **Hotkey Flow:** Confirmed the recorder boots in a `PAUSED` state, toggles cleanly into `RECORDING` via `P`, and saves/exits via `Q`.
+* **Synchronized Capture & Serialization:** Recorded `520` samples (~26 seconds at 20 FPS) to `data/city_escape_20261118_192527.npz` with verified array shapes `frames: (520, 90, 160, 3)` (`uint8`) and `actions: (520, 6)` (`float32`).
+* **Input Verification:** Inspected the saved `.npz` file with `numpy` and confirmed live keyboard inputs were captured alongside frames.
+
+### White-Box Testing (`tests/test_recorder.py`)
+All 16 unit test cases (12 test functions, including parametrized virtual-key checks) currently **PASS**.
+
+| Test Case | Target Method | Branch / Behavior Verified | Status |
+| :--- | :--- | :--- | :--- |
+| `test_key_to_vk_valid_keys` *(5 cases)* | `key_to_vk` | Converts alphanumeric keys (case-insensitive) and special keys (`space`, `F10`) to Windows virtual-key codes. | Passing |
+| `test_key_to_vk_raises_on_unsupported_key` | `key_to_vk` | Raises `ValueError` for invalid or unsupported key strings. | Passing |
+| `test_read_action_maps_axes_and_buttons` | `read_action` | Encodes held movement/button keys into a 6-float `float32` vector `[lx, ly, jump, action, cam_left, cam_right]`. | Passing |
+| `test_read_action_cancels_opposing_directions` | `read_action` | Cancels simultaneous opposing directional inputs (`W+S`, `A+D`) to `0.0`. | Passing |
+| `test_read_action_respects_custom_keymap` | `read_action` | Reads custom keybind overrides (e.g., `jump: "space"`) correctly. | Passing |
+| `test_step_starts_paused_and_does_not_record` | `step` | Maintains frame pacing via `grab_frame()` while paused without appending samples. | Passing |
+| `test_step_pause_toggle_is_rising_edge_only` | `step` | Toggles pause only on initial press of `P`; holding `P` across ticks does not flicker states. | Passing |
+| `test_step_returns_false_when_save_key_pressed` | `step` | Exits the tick immediately (`False`) without grabbing a frame when `save_key` is pressed. | Passing |
+| `test_save_skips_when_empty` | `save` | Returns `None` and writes no file if zero frames were recorded. | Passing |
+| `test_save_writes_valid_npz_dataset` | `save` | Writes a compressed `.npz` file with expected `frames` and `actions` shapes, dtypes, and values. | Passing |
+| `test_record_loop_saves_and_closes_capture` | `record` | Runs the tick loop until `save_key`, persists the `.npz` dataset, and closes `SA2Capture`. | Passing |
+| `test_record_closes_capture_even_on_exception` | `record` | Guarantees `capture.close()` runs in the `finally` block if capture raises mid-recording. | Passing |
