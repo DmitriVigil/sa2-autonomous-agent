@@ -50,6 +50,17 @@ class SA2Recorder:
         self.keymap = {**DEFAULT_KEYMAP, **(keymap or {})}
         self.pause_key = pause_key.lower()
         self.save_key = save_key.lower()
+        if self.pause_key == self.save_key:
+            raise ValueError(
+                f"pause_key and save_key must be different (both set to '{self.pause_key}')"
+            )
+
+        gameplay_keys = {k.lower() for k in self.keymap.values()}
+        for label, hotkey in (("pause_key", self.pause_key), ("save_key", self.save_key)):
+            if hotkey in gameplay_keys:
+                raise ValueError(
+                    f"{label} ('{hotkey}') collides with a gameplay key in keymap"
+                )
         self.output_dir = Path(output_dir)
         self._is_pressed = is_pressed_fn if is_pressed_fn is not None else _default_is_pressed
 
@@ -139,8 +150,8 @@ class SA2Recorder:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Record Sonic Adventure 2 gameplay data.")
     parser.add_argument("--stage", default="city_escape", help="Stage label for output filename")
-    parser.add_argument("--pause-key", default="p", help="Key to toggle pause/resume (default: p)")
-    parser.add_argument("--save-key", default="q", help="Key to save and exit (default: q)")
+    parser.add_argument("--pause-key", default="f9", help="Key to toggle pause/resume (default: p)")
+    parser.add_argument("--save-key", default="f10", help="Key to save and exit (default: q)")
     parser.add_argument("--output-dir", default="data", help="Directory for saved .npz files")
     args = parser.parse_args()
 
